@@ -2,7 +2,6 @@
 
 This guidence shows the training commands for reproducing our results on COCO Dataset.
 
-
 ## For Mobile models
 
 #### YOLOv6Lite-S/M/L
@@ -47,7 +46,6 @@ python -m torch.distributed.launch --nproc_per_node 8 tools/train.py \
 									--teacher_model_path runs/train/yolov6n_coco/weights/best_ckpt.pt \
 									--name yolov6n_coco
 ```
-
 
 #### YOLOv6-S/M/L
 
@@ -94,7 +92,6 @@ python -m torch.distributed.launch --nproc_per_node 8 tools/train.py \
 									--name yolov6s6_coco # yolov6n6_coco
 
 ```
-
 
 #### YOLOv6-M6/L6
 

@@ -20,16 +20,16 @@ def torch_dtype_from_trt(dtype):
     elif dtype == trt.float32:
         return torch.float32
     else:
-        raise TypeError('%s is not supported by torch' % dtype)
+        raise TypeError("%s is not supported by torch" % dtype)
 
 
 def torch_device_from_trt(device):
     if device == trt.TensorLocation.DEVICE:
-        return torch.device('cuda')
+        return torch.device("cuda")
     elif device == trt.TensorLocation.HOST:
-        return torch.device('cpu')
+        return torch.device("cpu")
     else:
-        return TypeError('%s is not supported by torch' % device)
+        return TypeError("%s is not supported by torch" % device)
 
 
 def get_input_shape(engine):
@@ -42,7 +42,8 @@ def get_input_shape(engine):
     elif len(binding_dims) == 3:
         return tuple(binding_dims[1:])
     else:
-        raise ValueError('bad dims of binding %s: %s' % (binding, str(binding_dims)))
+        raise ValueError("bad dims of binding %s: %s" % (binding, str(binding_dims)))
+
 
 def letterbox(im, new_shape=(640, 640), color=(114, 114, 114), auto=True, scaleup=False, stride=32):
     # Resize and pad image while meeting stride-multiple constraints
@@ -69,16 +70,26 @@ def letterbox(im, new_shape=(640, 640), color=(114, 114, 114), auto=True, scaleu
         im = cv2.resize(im, new_unpad, interpolation=cv2.INTER_LINEAR)
     top, bottom = int(round(dh - 0.1)), int(round(dh + 0.1))
     left, right = int(round(dw - 0.1)), int(round(dw + 0.1))
-    im = cv2.copyMakeBorder(im, top, bottom, left, right, cv2.BORDER_CONSTANT, value=color)  # add border
+    im = cv2.copyMakeBorder(
+        im, top, bottom, left, right, cv2.BORDER_CONSTANT, value=color
+    )  # add border
 
     return im, r, (left, top)
 
 
-class Processor():
-    def __init__(self, model, num_classes=80, num_layers=3, anchors=1, device=torch.device('cuda:0'), is_end2end=False):
+class Processor:
+    def __init__(
+        self,
+        model,
+        num_classes=80,
+        num_layers=3,
+        anchors=1,
+        device=torch.device("cuda:0"),
+        is_end2end=False,
+    ):
         # load tensorrt engine)
         self.is_end2end = is_end2end
-        Binding = namedtuple('Binding', ('name', 'dtype', 'shape', 'data', 'ptr'))
+        Binding = namedtuple("Binding", ("name", "dtype", "shape", "data", "ptr"))
         self.logger = trt.Logger(trt.Logger.INFO)
         trt.init_libnvinfer_plugins(self.logger, namespace="")
         self.runtime = trt.Runtime(self.logger)
@@ -126,38 +137,41 @@ class Processor():
         outputs = self.inference(resized)
         return outputs
 
-    def pre_process(self, img_src, input_shape=None,):
-        """Preprocess an image before TRT YOLO inferencing.
-        """
+    def pre_process(
+        self,
+        img_src,
+        input_shape=None,
+    ):
+        """Preprocess an image before TRT YOLO inferencing."""
         input_shape = input_shape if input_shape is not None else self.input_shape
         image, ratio, pad = letterbox(img_src, input_shape, auto=False, scaleup=False)
         # Convert
         image = image.transpose((2, 0, 1))[::-1]  # HWC to CHW, BGR to RGB
         image = torch.from_numpy(np.ascontiguousarray(image)).to(self.device).float()
-        image = image / 255.  # 0 - 255 to 0.0 - 1.0
+        image = image / 255.0  # 0 - 255 to 0.0 - 1.0
         return image, pad
 
     def inference(self, inputs):
         self.binding_addrs[self.input_names[0]] = int(inputs.data_ptr())
-        #self.binding_addrs['x2paddle_image_arrays'] = int(inputs.data_ptr())
+        # self.binding_addrs['x2paddle_image_arrays'] = int(inputs.data_ptr())
         self.context.execute_v2(list(self.binding_addrs.values()))
         if self.is_end2end:
-            nums = self.bindings['num_dets'].data
-            boxes = self.bindings['det_boxes'].data
-            scores = self.bindings['det_scores'].data
-            classes = self.bindings['det_classes'].data
-            output = torch.cat((boxes, scores[:,:,None], classes[:,:,None]), axis=-1)
+            nums = self.bindings["num_dets"].data
+            boxes = self.bindings["det_boxes"].data
+            scores = self.bindings["det_scores"].data
+            classes = self.bindings["det_classes"].data
+            output = torch.cat((boxes, scores[:, :, None], classes[:, :, None]), axis=-1)
         else:
             output = self.bindings[self.output_names[0]].data
-        #output = self.bindings['save_infer_model/scale_0.tmp_0'].data
+        # output = self.bindings['save_infer_model/scale_0.tmp_0'].data
         return output
 
     def output_reformate(self, outputs):
         z = []
         for i in range(self.nl):
-            cls_output = outputs[3*i].reshape((1, -1, self.shape[i], self.shape[i]))
-            reg_output = outputs[3*i+1].reshape((1, -1, self.shape[i], self.shape[i]))
-            obj_output = outputs[3*i+2].reshape((1, -1, self.shape[i], self.shape[i]))
+            cls_output = outputs[3 * i].reshape((1, -1, self.shape[i], self.shape[i]))
+            reg_output = outputs[3 * i + 1].reshape((1, -1, self.shape[i], self.shape[i]))
+            obj_output = outputs[3 * i + 2].reshape((1, -1, self.shape[i], self.shape[i]))
 
             y = torch.cat([reg_output, obj_output.sigmoid(), cls_output.sigmoid()], 1)
             bs, _, ny, nx = y.shape
@@ -165,7 +179,9 @@ class Processor():
 
             if self.grid[i].shape[2:4] != y.shape[2:4]:
                 d = self.stride.device
-                yv, xv = torch.meshgrid([torch.arange(ny).to(d), torch.arange(nx).to(d)], indexing='ij')
+                yv, xv = torch.meshgrid(
+                    [torch.arange(ny).to(d), torch.arange(nx).to(d)], indexing="ij"
+                )
                 self.grid[i] = torch.stack((xv, yv), 2).view(1, self.na, ny, nx, 2).float()
             if self.inplace:
                 y[..., 0:2] = (y[..., 0:2] + self.grid[i]) * self.stride[i]  # xy
@@ -195,7 +211,16 @@ class Processor():
         y[:, 3] = x[:, 1] + x[:, 3] / 2  # bottom right y
         return y
 
-    def non_max_suppression(self, prediction, conf_thres=0.25, iou_thres=0.45, classes=None, agnostic=False, multi_label=False, max_det=300):
+    def non_max_suppression(
+        self,
+        prediction,
+        conf_thres=0.25,
+        iou_thres=0.45,
+        classes=None,
+        agnostic=False,
+        multi_label=False,
+        max_det=300,
+    ):
         """Runs Non-Maximum Suppression (NMS) on inference results.
         This code is borrowed from: https://github.com/ultralytics/yolov5/blob/47233e1698b89fc437a4fb9463c815e9171be955/utils/general.py#L775
         Args:
@@ -214,8 +239,12 @@ class Processor():
         pred_candidates = prediction[..., 4] > conf_thres  # candidates
 
         # Check the parameters.
-        assert 0 <= conf_thres <= 1, f'conf_thresh must be in 0.0 to 1.0, however {conf_thres} is provided.'
-        assert 0 <= iou_thres <= 1, f'iou_thres must be in 0.0 to 1.0, however {iou_thres} is provided.'
+        assert (
+            0 <= conf_thres <= 1
+        ), f"conf_thresh must be in 0.0 to 1.0, however {conf_thres} is provided."
+        assert (
+            0 <= iou_thres <= 1
+        ), f"iou_thres must be in 0.0 to 1.0, however {iou_thres} is provided."
 
         # Function settings.
         max_wh = 4096  # maximum box width and height
@@ -241,7 +270,9 @@ class Processor():
             # Detections matrix's shape is  (n,6), each row represents (xyxy, conf, cls)
             if multi_label:
                 box_idx, class_idx = (x[:, 5:] > conf_thres).nonzero(as_tuple=False).T
-                x = torch.cat((box[box_idx], x[box_idx, class_idx + 5, None], class_idx[:, None].float()), 1)
+                x = torch.cat(
+                    (box[box_idx], x[box_idx, class_idx + 5, None], class_idx[:, None].float()), 1
+                )
             else:  # Only keep the class with highest scores.
                 conf, class_idx = x[:, 5:].max(1, keepdim=True)
                 x = torch.cat((box, conf, class_idx.float()), 1)[conf.view(-1) > conf_thres]
@@ -266,7 +297,7 @@ class Processor():
 
             output[img_idx] = x[keep_box_idx]
             if (time.time() - tik) > time_limit:
-                print(f'WARNING: NMS cost time exceed the limited {time_limit}s.')
+                print(f"WARNING: NMS cost time exceed the limited {time_limit}s.")
                 break  # time limit exceeded
 
         return output

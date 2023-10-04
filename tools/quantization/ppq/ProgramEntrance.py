@@ -1,24 +1,27 @@
 try:
     from ppq.core.config import PPQ_CONFIG
-    if PPQ_CONFIG.VERSION < '0.6.6':
-        raise ValueError('为了运行该脚本的内容，你必须安装更高版本的 PPQ(>0.6.6)')
+
+    if PPQ_CONFIG.VERSION < "0.6.6":
+        raise ValueError("为了运行该脚本的内容，你必须安装更高版本的 PPQ(>0.6.6)")
 
     import ppq.lib as PFL
     from ppq import TargetPlatform, TorchExecutor, graphwise_error_analyse
     from ppq.api import ENABLE_CUDA_KERNEL
     from ppq.api.interface import load_onnx_graph
-    from ppq.core import (QuantizationPolicy, QuantizationProperty,
-                          RoundingPolicy)
+    from ppq.core import QuantizationPolicy, QuantizationProperty, RoundingPolicy
     from ppq.IR import Operation
-    from ppq.quantization.optim import (LearnedStepSizePass,
-                                        ParameterBakingPass,
-                                        ParameterQuantizePass,
-                                        QuantAlignmentPass, QuantizeFusionPass,
-                                        QuantizeSimplifyPass,
-                                        RuntimeCalibrationPass)
+    from ppq.quantization.optim import (
+        LearnedStepSizePass,
+        ParameterBakingPass,
+        ParameterQuantizePass,
+        QuantAlignmentPass,
+        QuantizeFusionPass,
+        QuantizeSimplifyPass,
+        RuntimeCalibrationPass,
+    )
 
 except ImportError:
-    raise Exception('为了运行脚本内容，你必须安装 PPQ 量化工具(https://github.com/openppl-public/ppq)')
+    raise Exception("为了运行脚本内容，你必须安装 PPQ 量化工具(https://github.com/openppl-public/ppq)")
 from typing import List
 
 import torch
@@ -30,7 +33,7 @@ import torch
 #
 # 根据你选取的目标平台，PPQ 可以为 TensorRT, Openvino, Ncnn 等诸多平台生成量化模型
 # ------------------------------------------------------------
-graph = load_onnx_graph(onnx_import_file='Models/det_model/yolov6s.onnx')
+graph = load_onnx_graph(onnx_import_file="Models/det_model/yolov6s.onnx")
 dataset = [torch.rand(size=[1, 3, 640, 640]) for _ in range(64)]
 
 # -----------------------------------------------------------
@@ -47,14 +50,18 @@ dataset = [torch.rand(size=[1, 3, 640, 640]) for _ in range(64)]
 from ppq import TensorQuantizationConfig as TQC
 
 MyTQC = TQC(
-    policy = QuantizationPolicy(
-        QuantizationProperty.SYMMETRICAL +
-        QuantizationProperty.LINEAR +
-        QuantizationProperty.PER_TENSOR),
+    policy=QuantizationPolicy(
+        QuantizationProperty.SYMMETRICAL
+        + QuantizationProperty.LINEAR
+        + QuantizationProperty.PER_TENSOR
+    ),
     rounding=RoundingPolicy.ROUND_HALF_EVEN,
-    num_of_bits=8, quant_min=-128, quant_max=127,
-    exponent_bits=0, channel_axis=None,
-    observer_algorithm='minmax'
+    num_of_bits=8,
+    quant_min=-128,
+    quant_max=127,
+    exponent_bits=0,
+    channel_axis=None,
+    observer_algorithm="minmax",
 )
 # ------------------------------------------------------------
 # 作为示例，我们创建了一个 "线性" "对称" "Tensorwise" 的量化信息
@@ -78,9 +85,9 @@ MyTQC = TQC(
 # 由它们所生成的量化信息是不同的，为此你可以访问它们的源代码
 # 位于 ppq.quantization.quantizer 中，查看它们初始化量化信息的逻辑。
 # ------------------------------------------------------------
-_ = PFL.Quantizer(platform=TargetPlatform.TRT_FP8, graph=graph)          # 取得 TRT_FP8 所对应的量化器
-_ = PFL.Quantizer(platform=TargetPlatform.GRAPHCORE_FP8, graph=graph)    # 取得 GRAPHCORE_FP8 所对应的量化器
-quantizer = PFL.Quantizer(platform=TargetPlatform.TRT_INT8, graph=graph) # 取得 TRT_INT8 所对应的量化器
+_ = PFL.Quantizer(platform=TargetPlatform.TRT_FP8, graph=graph)  # 取得 TRT_FP8 所对应的量化器
+_ = PFL.Quantizer(platform=TargetPlatform.GRAPHCORE_FP8, graph=graph)  # 取得 GRAPHCORE_FP8 所对应的量化器
+quantizer = PFL.Quantizer(platform=TargetPlatform.TRT_INT8, graph=graph)  # 取得 TRT_INT8 所对应的量化器
 
 # ------------------------------------------------------------
 # 调度器是 PPQ 中另一核心类型，它负责切分计算图
@@ -89,17 +96,17 @@ quantizer = PFL.Quantizer(platform=TargetPlatform.TRT_INT8, graph=graph) # 取�
 # *** 量化器只为量化区的算子初始化量化信息 ***
 # 调度信息将被写在算子的属性中，你可以通过 op.platform 来访问每一个算子的调度信息
 # ------------------------------------------------------------
-dispatching = PFL.Dispatcher(graph=graph).dispatch(                       # 生成调度表
-    quant_types=quantizer.quant_operation_types)
+dispatching = PFL.Dispatcher(graph=graph).dispatch(  # 生成调度表
+    quant_types=quantizer.quant_operation_types
+)
 
 for op in graph.operations.values():
     # quantize_operation - 为算子初始化量化信息，platform 传递了算子的调度信息
     # 如果你的算子被调度到 TargetPlatform.FP32 上，则该算子不量化
     # 你可以手动修改调度信息
-    dispatching['Op1'] = TargetPlatform.FP32        # 将 Op1 强行送往非量化区
-    dispatching['Op2'] = TargetPlatform.TRT_INT8    # 将 Op2 强行送往量化区
-    quantizer.quantize_operation(
-        op_name = op.name, platform = dispatching[op.name])
+    dispatching["Op1"] = TargetPlatform.FP32  # 将 Op1 强行送往非量化区
+    dispatching["Op2"] = TargetPlatform.TRT_INT8  # 将 Op2 强行送往量化区
+    quantizer.quantize_operation(op_name=op.name, platform=dispatching[op.name])
 
 # ------------------------------------------------------------
 # 在创建量化管线之前，我们需要初始化执行器，它用于模拟硬件并执行你的网络
@@ -108,7 +115,7 @@ for op in graph.operations.values():
 # 普通的算子被量化算子替代，这一步操作将会改变网络结构。因此我们必须在其后建立执行器。
 # ------------------------------------------------------------
 collate_fn = lambda x: x.cuda()
-executor = TorchExecutor(graph=graph, device='cuda')
+executor = TorchExecutor(graph=graph, device="cuda")
 executor.tracing_operation_meta(inputs=collate_fn(dataset[0]))
 executor.load_graph(graph=graph)
 
@@ -117,14 +124,18 @@ executor.load_graph(graph=graph)
 # 因此你可以注册一个假的 NMS forward 函数给 PPQ，帮助我们完成网络的前向传播流程
 # ------------------------------------------------------------
 from ppq.api import register_operation_handler
+
+
 def nms_forward_function(op: Operation, values: List[torch.Tensor], **kwards) -> List[torch.Tensor]:
     return (
         torch.zeros([1, 1], dtype=torch.int32).cuda(),
-        torch.zeros([1, 100, 4],dtype=torch.float32).cuda(),
-        torch.zeros([1, 100],dtype=torch.float32).cuda(),
-        torch.zeros([1, 100], dtype=torch.int32).cuda()
+        torch.zeros([1, 100, 4], dtype=torch.float32).cuda(),
+        torch.zeros([1, 100], dtype=torch.float32).cuda(),
+        torch.zeros([1, 100], dtype=torch.int32).cuda(),
     )
-register_operation_handler(nms_forward_function, 'EfficientNMS_TRT', platform=TargetPlatform.FP32)
+
+
+register_operation_handler(nms_forward_function, "EfficientNMS_TRT", platform=TargetPlatform.FP32)
 
 # ------------------------------------------------------------
 # 下面的过程将创建量化管线，它还是一个 PPQ 的核心类型
@@ -145,29 +156,35 @@ register_operation_handler(nms_forward_function, 'EfficientNMS_TRT', platform=Ta
 # 你可以组合它们从而实现自定义的功能，也可以继承 QuantizationOptimizationPass 基类
 # 从而创造出新的量化优化过程
 # ------------------------------------------------------------
-pipeline = PFL.Pipeline([
-    QuantizeSimplifyPass(),
-    QuantizeFusionPass(
-        activation_type=quantizer.activation_fusion_types),
-    ParameterQuantizePass(),
-    RuntimeCalibrationPass(),
-    QuantAlignmentPass(force_overlap=True),
-    LearnedStepSizePass(
-         steps=1000, is_scale_trainable=True,
-        lr=1e-5, block_size=4, collecting_device='cuda'),
-    ParameterBakingPass()
-])
+pipeline = PFL.Pipeline(
+    [
+        QuantizeSimplifyPass(),
+        QuantizeFusionPass(activation_type=quantizer.activation_fusion_types),
+        ParameterQuantizePass(),
+        RuntimeCalibrationPass(),
+        QuantAlignmentPass(force_overlap=True),
+        LearnedStepSizePass(
+            steps=1000, is_scale_trainable=True, lr=1e-5, block_size=4, collecting_device="cuda"
+        ),
+        ParameterBakingPass(),
+    ]
+)
 
 with ENABLE_CUDA_KERNEL():
     # 调用管线完成量化
     pipeline.optimize(
-        graph=graph, dataloader=dataset, verbose=True,
-        calib_steps=32, collate_fn=collate_fn, executor=executor)
+        graph=graph,
+        dataloader=dataset,
+        verbose=True,
+        calib_steps=32,
+        collate_fn=collate_fn,
+        executor=executor,
+    )
 
     # 执行量化误差分析
     graphwise_error_analyse(
-        graph=graph, running_device='cuda',
-        dataloader=dataset, collate_fn=collate_fn)
+        graph=graph, running_device="cuda", dataloader=dataset, collate_fn=collate_fn
+    )
 
 # ------------------------------------------------------------
 # 在最后，我们导出计算图
@@ -177,7 +194,7 @@ with ENABLE_CUDA_KERNEL():
 # 翻译成推理框架所需的内容。你也可以自己写一个 GraphExporter 类并注册到 PPQ 框架中来。
 # ------------------------------------------------------------
 exporter = PFL.Exporter(platform=TargetPlatform.TRT_INT8)
-exporter.export(file_path='Quantized.onnx', config_path='Quantized.json', graph=graph)
+exporter.export(file_path="Quantized.onnx", config_path="Quantized.json", graph=graph)
 
 # ------------------------------------------------------------
 # 导出所需的 onnx 和 json 文件之后，你可以调用在这个文件旁边的 write_qparams_onnx2trt.py 生成 engine

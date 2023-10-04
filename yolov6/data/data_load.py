@@ -30,8 +30,7 @@ def create_dataloader(
     task="Train",
     specific_shape=False,
     height=1088,
-    width=1920
-
+    width=1920,
 ):
     """Create general dataloader.
 
@@ -57,9 +56,9 @@ def create_dataloader(
             rank=rank,
             data_dict=data_dict,
             task=task,
-            specific_shape = specific_shape,
+            specific_shape=specific_shape,
             height=height,
-            width=width
+            width=width,
         )
 
     batch_size = min(batch_size, len(dataset))
@@ -76,7 +75,9 @@ def create_dataloader(
     # will cause exception in collate function of torch.stack.
     drop_last = rect and dist.is_initialized() and dist.get_world_size() > 1
     sampler = (
-        None if rank == -1 else distributed.DistributedSampler(dataset, shuffle=shuffle, drop_last=drop_last)
+        None
+        if rank == -1
+        else distributed.DistributedSampler(dataset, shuffle=shuffle, drop_last=drop_last)
     )
     return (
         TrainValDataLoader(

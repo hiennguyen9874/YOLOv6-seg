@@ -11,7 +11,7 @@ import numpy as np
 
 
 def augment_hsv(im, hgain=0.5, sgain=0.5, vgain=0.5):
-    '''HSV color-space augmentation.'''
+    """HSV color-space augmentation."""
     if hgain or sgain or vgain:
         r = np.random.uniform(-1, 1, 3) * [hgain, sgain, vgain] + 1  # random gains
         hue, sat, val = cv2.split(cv2.cvtColor(im, cv2.COLOR_BGR2HSV))
@@ -27,12 +27,12 @@ def augment_hsv(im, hgain=0.5, sgain=0.5, vgain=0.5):
 
 
 def letterbox(im, new_shape=(640, 640), color=(114, 114, 114), auto=False, scaleup=True, stride=32):
-    '''Resize and pad image while meeting stride-multiple constraints.'''
+    """Resize and pad image while meeting stride-multiple constraints."""
     shape = im.shape[:2]  # current shape [height, width]
     if isinstance(new_shape, int):
         new_shape = (new_shape, new_shape)
     elif isinstance(new_shape, list) and len(new_shape) == 1:
-       new_shape = (new_shape[0], new_shape[0])
+        new_shape = (new_shape[0], new_shape[0])
 
     # Scale ratio (new / old)
     r = min(new_shape[0] / shape[0], new_shape[1] / shape[1])
@@ -54,14 +54,15 @@ def letterbox(im, new_shape=(640, 640), color=(114, 114, 114), auto=False, scale
 
     top, bottom = int(round(dh - 0.1)), int(round(dh + 0.1))
     left, right = int(round(dw - 0.1)), int(round(dw + 0.1))
-    im = cv2.copyMakeBorder(im, top, bottom, left, right, cv2.BORDER_CONSTANT, value=color)  # add border
-
+    im = cv2.copyMakeBorder(
+        im, top, bottom, left, right, cv2.BORDER_CONSTANT, value=color
+    )  # add border
 
     return im, r, (left, top)
 
 
 def mixup(im, labels, segments, im2, labels2, segments2):
-    '''Applies MixUp augmentation https://arxiv.org/pdf/1710.09412.pdf.'''
+    """Applies MixUp augmentation https://arxiv.org/pdf/1710.09412.pdf."""
     r = np.random.beta(32.0, 32.0)  # mixup ratio, alpha=beta=32.0
     im = (im * r + im2 * (1 - r)).astype(np.uint8)
     labels = np.concatenate((labels, labels2), 0)
@@ -69,17 +70,22 @@ def mixup(im, labels, segments, im2, labels2, segments2):
     return im, labels, segments
 
 
-def box_candidates(box1, box2, wh_thr=2, ar_thr=20, area_thr=0.1, eps=1e-16):  # box1(4,n), box2(4,n)
-    '''Compute candidate boxes: box1 before augment, box2 after augment, wh_thr (pixels), aspect_ratio_thr, area_ratio.'''
+def box_candidates(
+    box1, box2, wh_thr=2, ar_thr=20, area_thr=0.1, eps=1e-16
+):  # box1(4,n), box2(4,n)
+    """Compute candidate boxes: box1 before augment, box2 after augment, wh_thr (pixels), aspect_ratio_thr, area_ratio."""
     w1, h1 = box1[2] - box1[0], box1[3] - box1[1]
     w2, h2 = box2[2] - box2[0], box2[3] - box2[1]
     ar = np.maximum(w2 / (h2 + eps), h2 / (w2 + eps))  # aspect ratio
-    return (w2 > wh_thr) & (h2 > wh_thr) & (w2 * h2 / (w1 * h1 + eps) > area_thr) & (ar < ar_thr)  # candidates
+    return (
+        (w2 > wh_thr) & (h2 > wh_thr) & (w2 * h2 / (w1 * h1 + eps) > area_thr) & (ar < ar_thr)
+    )  # candidates
 
 
-def random_affine(img, labels=(), degrees=10, translate=.1, scale=.1, shear=10,
-                  new_shape=(640, 640)):
-    '''Applies Random affine transformation.'''
+def random_affine(
+    img, labels=(), degrees=10, translate=0.1, scale=0.1, shear=10, new_shape=(640, 640)
+):
+    """Applies Random affine transformation."""
     n = len(labels)
     height, width = new_shape
 
@@ -91,7 +97,7 @@ def random_affine(img, labels=(), degrees=10, translate=.1, scale=.1, shear=10,
     new_segments = []
     if n:
         new = np.zeros((n, 4))
-        
+
         xy = np.ones((n * 4, 3))
         xy[:, :2] = labels[:, [1, 2, 3, 4, 1, 4, 3, 2]].reshape(n * 4, 2)  # x1y1, x2y2, x1y2, x2y1
         xy = xy @ M.T  # transform
@@ -112,7 +118,6 @@ def random_affine(img, labels=(), degrees=10, translate=.1, scale=.1, shear=10,
         labels[:, 1:5] = new[i]
 
     return img, labels
-
 
 
 def get_transform_matrix(img_shape, new_shape, degrees, scale, shear, translate):
@@ -138,35 +143,53 @@ def get_transform_matrix(img_shape, new_shape, degrees, scale, shear, translate)
     # Translation
     T = np.eye(3)
     T[0, 2] = random.uniform(0.5 - translate, 0.5 + translate) * new_width  # x translation (pixels)
-    T[1, 2] = random.uniform(0.5 - translate, 0.5 + translate) * new_height  # y transla ion (pixels)
+    T[1, 2] = (
+        random.uniform(0.5 - translate, 0.5 + translate) * new_height
+    )  # y transla ion (pixels)
 
     # Combined rotation matrix
     M = T @ S @ R @ C  # order of operations (right to left) is IMPORTANT
     return M, s
 
 
-def mosaic_augmentation(shape, imgs, hs, ws, labels, hyp, specific_shape = False, target_height=640, target_width=640):
-    '''Applies Mosaic augmentation.'''
+def mosaic_augmentation(
+    shape, imgs, hs, ws, labels, hyp, specific_shape=False, target_height=640, target_width=640
+):
+    """Applies Mosaic augmentation."""
     assert len(imgs) == 4, "Mosaic augmentation of current version only supports 4 images."
     labels4 = []
-    
+
     if not specific_shape:
         if isinstance(shape, list) or isinstance(shape, np.ndarray):
             target_height, target_width = shape
         else:
             target_height = target_width = shape
 
-    yc, xc = (int(random.uniform(x//2, 3*x//2)) for x in (target_height, target_width) )  # mosaic center x, y
+    yc, xc = (
+        int(random.uniform(x // 2, 3 * x // 2)) for x in (target_height, target_width)
+    )  # mosaic center x, y
 
     for i in range(len(imgs)):
         # Load image
         img, h, w = imgs[i], hs[i], ws[i]
         # place img in img4
         if i == 0:  # top left
-            img4 = np.full((target_height * 2, target_width * 2, img.shape[2]), 114, dtype=np.uint8)  # base image with 4 tiles
+            img4 = np.full(
+                (target_height * 2, target_width * 2, img.shape[2]), 114, dtype=np.uint8
+            )  # base image with 4 tiles
 
-            x1a, y1a, x2a, y2a = max(xc - w, 0), max(yc - h, 0), xc, yc  # xmin, ymin, xmax, ymax (large image)
-            x1b, y1b, x2b, y2b = w - (x2a - x1a), h - (y2a - y1a), w, h  # xmin, ymin, xmax, ymax (small image)
+            x1a, y1a, x2a, y2a = (
+                max(xc - w, 0),
+                max(yc - h, 0),
+                xc,
+                yc,
+            )  # xmin, ymin, xmax, ymax (large image)
+            x1b, y1b, x2b, y2b = (
+                w - (x2a - x1a),
+                h - (y2a - y1a),
+                w,
+                h,
+            )  # xmin, ymin, xmax, ymax (small image)
         elif i == 1:  # top right
             x1a, y1a, x2a, y2a = xc, max(yc - h, 0), min(xc + w, target_width * 2), yc
             x1b, y1b, x2b, y2b = 0, h - (y2a - y1a), min(w, x2a - x1a), h
@@ -174,7 +197,12 @@ def mosaic_augmentation(shape, imgs, hs, ws, labels, hyp, specific_shape = False
             x1a, y1a, x2a, y2a = max(xc - w, 0), yc, xc, min(target_height * 2, yc + h)
             x1b, y1b, x2b, y2b = w - (x2a - x1a), 0, w, min(y2a - y1a, h)
         elif i == 3:  # bottom right
-            x1a, y1a, x2a, y2a = xc, yc, min(xc + w, target_width * 2), min(target_height * 2, yc + h)
+            x1a, y1a, x2a, y2a = (
+                xc,
+                yc,
+                min(xc + w, target_width * 2),
+                min(target_height * 2, yc + h),
+            )
             x1b, y1b, x2b, y2b = 0, 0, min(w, x2a - x1a), min(y2a - y1a, h)
 
         img4[y1a:y2a, x1a:x2a] = img[y1b:y2b, x1b:x2b]  # img4[ymin:ymax, xmin:xmax]
@@ -183,18 +211,21 @@ def mosaic_augmentation(shape, imgs, hs, ws, labels, hyp, specific_shape = False
 
         # Labels
         labels_per_img = labels[i].copy()
-        
+
         if labels_per_img.size:
             boxes = np.copy(labels_per_img[:, 1:])
             boxes[:, 0] = w * (labels_per_img[:, 1] - labels_per_img[:, 3] / 2) + padw  # top left x
             boxes[:, 1] = h * (labels_per_img[:, 2] - labels_per_img[:, 4] / 2) + padh  # top left y
-            boxes[:, 2] = w * (labels_per_img[:, 1] + labels_per_img[:, 3] / 2) + padw  # bottom right x
-            boxes[:, 3] = h * (labels_per_img[:, 2] + labels_per_img[:, 4] / 2) + padh  # bottom right y
-            
+            boxes[:, 2] = (
+                w * (labels_per_img[:, 1] + labels_per_img[:, 3] / 2) + padw
+            )  # bottom right x
+            boxes[:, 3] = (
+                h * (labels_per_img[:, 2] + labels_per_img[:, 4] / 2) + padh
+            )  # bottom right y
+
             labels_per_img[:, 1:] = boxes
 
         labels4.append(labels_per_img)
-        
 
     # Concat/clip labels
     labels4 = np.concatenate(labels4, 0)
@@ -202,14 +233,16 @@ def mosaic_augmentation(shape, imgs, hs, ws, labels, hyp, specific_shape = False
     #     np.clip(x, 0, 2 * s, out=x)
     labels4[:, 1::2] = np.clip(labels4[:, 1::2], 0, 2 * target_width)
     labels4[:, 2::2] = np.clip(labels4[:, 2::2], 0, 2 * target_height)
-    
 
     # Augment
-    img4, labels4 = random_affine(img4, labels4,
-                                  degrees=hyp['degrees'],
-                                  translate=hyp['translate'],
-                                  scale=hyp['scale'],
-                                  shear=hyp['shear'],
-                                  new_shape=(target_height, target_width))
+    img4, labels4 = random_affine(
+        img4,
+        labels4,
+        degrees=hyp["degrees"],
+        translate=hyp["translate"],
+        scale=hyp["scale"],
+        shear=hyp["shear"],
+        new_shape=(target_height, target_width),
+    )
 
     return img4, labels4

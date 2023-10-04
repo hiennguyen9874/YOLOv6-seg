@@ -29,7 +29,7 @@ from .seg_data_augment import (
     mixup,
     random_affine,
     mosaic_augmentation,
-    copy_paste
+    copy_paste,
 )
 from yolov6.utils.events import LOGGER
 import pickle
@@ -46,13 +46,16 @@ for k, v in ExifTags.TAGS.items():
         ORIENTATION = k
         break
 
+
 def img2label_paths(img_paths):
     # Define label paths as a function of image paths
-    sa, sb = f'{os.sep}images{os.sep}', f'{os.sep}labels{os.sep}'  # /images/, /labels/ substrings
-    return [sb.join(x.rsplit(sa, 1)).rsplit('.', 1)[0] + '.txt' for x in img_paths]
+    sa, sb = f"{os.sep}images{os.sep}", f"{os.sep}labels{os.sep}"  # /images/, /labels/ substrings
+    return [sb.join(x.rsplit(sa, 1)).rsplit(".", 1)[0] + ".txt" for x in img_paths]
+
 
 class TrainValDataset(Dataset):
-    '''YOLOv6 train_loader/val_loader, loads images and labels for training and validation.'''
+    """YOLOv6 train_loader/val_loader, loads images and labels for training and validation."""
+
     def __init__(
         self,
         img_dir,
@@ -68,17 +71,17 @@ class TrainValDataset(Dataset):
         rank=-1,
         data_dict=None,
         task="train",
-        specific_shape = False,
+        specific_shape=False,
         height=1088,
         width=1920,
         downsample_ratio=4,
-        overlap=False
+        overlap=False,
     ):
         assert task.lower() in ("train", "val", "test", "speed"), f"Not supported task: {task}"
-        
+
         t1 = time.time()
         self.__dict__.update(locals())
-        if task.lower()!="train":
+        if task.lower() != "train":
             self.downsample_ratio = 1
         self.main_process = self.rank in (-1, 0)
         self.task = self.task.capitalize()
@@ -99,9 +102,7 @@ class TrainValDataset(Dataset):
                 sample_batch_size = self.batch_size * dist.get_world_size()
             else:
                 sample_batch_size = self.batch_size
-            self.batch_indices = np.floor(
-                np.arange(len(shapes)) / sample_batch_size
-            ).astype(
+            self.batch_indices = np.floor(np.arange(len(shapes)) / sample_batch_size).astype(
                 np.int_
             )  # batch indices of each image
 
@@ -121,23 +122,26 @@ class TrainValDataset(Dataset):
         During validation, letterbox augment is applied.
         """
         target_shape = (
-                (self.target_height, self.target_width) if self.specific_shape else
-                self.batch_shapes[self.batch_indices[index]] if self.rect
-                else self.img_size
-                )
+            (self.target_height, self.target_width)
+            if self.specific_shape
+            else self.batch_shapes[self.batch_indices[index]]
+            if self.rect
+            else self.img_size
+        )
 
         # Mosaic Augmentation
         if self.augment and random.random() < self.hyp["mosaic"]:
             img, labels, segments = self.get_mosaic(index, target_shape)
             shapes = None
-            
 
             # MixUp augmentation
             if random.random() < self.hyp["mixup"]:
                 img_other, labels_other, segments_other = self.get_mosaic(
                     random.randint(0, len(self.img_paths) - 1), target_shape
                 )
-                img, labels, segments = mixup(img, labels, segments, img_other, labels_other, segments_other) # To Change
+                img, labels, segments = mixup(
+                    img, labels, segments, img_other, labels_other, segments_other
+                )  # To Change
 
         else:
             # Load image
@@ -157,20 +161,12 @@ class TrainValDataset(Dataset):
                 h *= ratio
                 # new boxes
                 boxes = np.copy(labels[:, 1:5])
-                boxes[:, 0] = (
-                    w * (labels[:, 1] - labels[:, 3] / 2) + pad[0]
-                )  # top left x
-                boxes[:, 1] = (
-                    h * (labels[:, 2] - labels[:, 4] / 2) + pad[1]
-                )  # top left y
-                boxes[:, 2] = (
-                    w * (labels[:, 1] + labels[:, 3] / 2) + pad[0]
-                )  # bottom right x
-                boxes[:, 3] = (
-                    h * (labels[:, 2] + labels[:, 4] / 2) + pad[1]
-                )  # bottom right y
+                boxes[:, 0] = w * (labels[:, 1] - labels[:, 3] / 2) + pad[0]  # top left x
+                boxes[:, 1] = h * (labels[:, 2] - labels[:, 4] / 2) + pad[1]  # top left y
+                boxes[:, 2] = w * (labels[:, 1] + labels[:, 3] / 2) + pad[0]  # bottom right x
+                boxes[:, 3] = h * (labels[:, 2] + labels[:, 4] / 2) + pad[1]  # bottom right y
                 labels[:, 1:] = boxes
-            
+
             if len(segments):
                 for i_s in range(len(segments)):
                     segments[i_s][:, 0] = segments[i_s][:, 0] * ratio * w + pad[0]
@@ -197,9 +193,8 @@ class TrainValDataset(Dataset):
                     scale=0,
                     shear=0,
                     new_shape=target_shape,
-                    task="val"
+                    task="val",
                 )
-
 
         if len(labels):
             h, w = img.shape[:2]
@@ -214,21 +209,31 @@ class TrainValDataset(Dataset):
             boxes[:, 3] = (labels[:, 4] - labels[:, 2]) / h  # height
             labels[:, 1:] = boxes
             lindex = labels[:, 0] >= 0
-            masks = self.polygons2masks(img.shape[:2], segments, color=1, downsample_ratio=self.downsample_ratio)
+            masks = self.polygons2masks(
+                img.shape[:2], segments, color=1, downsample_ratio=self.downsample_ratio
+            )
             labels = labels[lindex]
             masks = masks[lindex]
-        
+
         else:
             masks = np.asarray([])
 
         if self.augment:
-            img, labels, masks = self.general_augment(img, labels, masks.transpose(1, 2, 0) if masks.shape[0]!=0 else masks)
-        
-        #?
-        
-        masks_out = (torch.from_numpy(masks.copy()) if len(masks) else torch.zeros(1 if self.overlap else len(labels), img.shape[0] //
-                                                                        self.downsample_ratio, img.shape[1] //
-                                                                        self.downsample_ratio))
+            img, labels, masks = self.general_augment(
+                img, labels, masks.transpose(1, 2, 0) if masks.shape[0] != 0 else masks
+            )
+
+        # ?
+
+        masks_out = (
+            torch.from_numpy(masks.copy())
+            if len(masks)
+            else torch.zeros(
+                1 if self.overlap else len(labels),
+                img.shape[0] // self.downsample_ratio,
+                img.shape[1] // self.downsample_ratio,
+            )
+        )
 
         labels_out = torch.zeros((len(labels), 6))
         if len(labels):
@@ -267,13 +272,13 @@ class TrainValDataset(Dataset):
             ratio = self.img_size / max(h0, w0)
 
         if ratio != 1:
-                im = cv2.resize(
-                    im,
-                    (int(w0 * ratio), int(h0 * ratio)),
-                    interpolation=cv2.INTER_AREA
-                    if ratio < 1 and not self.augment
-                    else cv2.INTER_LINEAR,
-                )
+            im = cv2.resize(
+                im,
+                (int(w0 * ratio), int(h0 * ratio)),
+                interpolation=cv2.INTER_AREA
+                if ratio < 1 and not self.augment
+                else cv2.INTER_LINEAR,
+            )
         return im, (h0, w0), im.shape[:2]
 
     @staticmethod
@@ -283,7 +288,7 @@ class TrainValDataset(Dataset):
         for i, l in enumerate(label):
             l[:, 0] = i  # add target image index for build_targets()
         return torch.stack(img, 0), torch.cat(label, 0), path, shapes, torch.cat(masks, 0)
-    
+
     @staticmethod
     def get_segment(labels):
         rlabels = []
@@ -291,23 +296,20 @@ class TrainValDataset(Dataset):
         if len(labels) == 0:
             return np.asarray([])
         for label in labels:
-            z1 = []#labels
-            z2 = []#seg
+            z1 = []  # labels
+            z2 = []  # seg
             for l in label:
                 z1.append(np.asarray(l[:5]).reshape(1, 5).astype(np.float32))
                 z2.append(np.asarray(l[1:]).reshape(-1, 2).astype(np.float32))
             if z1:
-                rlabels.append(np.concatenate(z1, axis = 0))
+                rlabels.append(np.concatenate(z1, axis=0))
                 segments.append(z2)
             else:
-                t = np.zeros((1, 5), dtype = np.float32)
-                t[..., 0]= -1
+                t = np.zeros((1, 5), dtype=np.float32)
+                t[..., 0] = -1
                 rlabels.append(t)
-                segments.append([np.zeros((2, 2), dtype = np.float32)])
+                segments.append([np.zeros((2, 2), dtype=np.float32)])
         return rlabels, segments
-            
-                
-
 
     def get_imgs_labels(self, img_dirs):
         if not isinstance(img_dirs, list):
@@ -328,7 +330,7 @@ class TrainValDataset(Dataset):
 
         assert img_paths, f"No images found in {img_dir}."
         img_hash = self.get_hash(img_paths)
-        LOGGER.info(f'img record infomation path is:{valid_img_record}')
+        LOGGER.info(f"img record infomation path is:{valid_img_record}")
         if osp.exists(valid_img_record):
             with open(valid_img_record, "r") as f:
                 cache_info = json.load(f)
@@ -343,9 +345,7 @@ class TrainValDataset(Dataset):
         if self.check_images and self.main_process:
             img_info = {}
             nc, msgs = 0, []  # number corrupt, messages
-            LOGGER.info(
-                f"{self.task}: Checking formats of images with {NUM_THREADS} process(es): "
-            )
+            LOGGER.info(f"{self.task}: Checking formats of images with {NUM_THREADS} process(es): ")
             with Pool(NUM_THREADS) as pool:
                 pbar = tqdm(
                     pool.imap(TrainValDataset.check_image, img_paths),
@@ -379,13 +379,9 @@ class TrainValDataset(Dataset):
         if self.check_labels:
             cache_info["label_hash"] = label_hash
             nm, nf, ne, nc, msgs = 0, 0, 0, 0, []  # number corrupt, messages
-            LOGGER.info(
-                f"{self.task}: Checking formats of labels with {NUM_THREADS} process(es): "
-            )
+            LOGGER.info(f"{self.task}: Checking formats of labels with {NUM_THREADS} process(es): ")
             with Pool(NUM_THREADS) as pool:
-                pbar = pool.imap(
-                    TrainValDataset.check_label_files, zip(img_paths, label_paths)
-                )
+                pbar = pool.imap(TrainValDataset.check_label_files, zip(img_paths, label_paths))
                 pbar = tqdm(pbar, total=len(label_paths)) if self.main_process else pbar
                 for (
                     img_path,
@@ -415,13 +411,15 @@ class TrainValDataset(Dataset):
             if msgs:
                 LOGGER.info("\n".join(msgs))
             if nf == 0:
-                LOGGER.warning(
-                    f"WARNING: No labels found in {osp.dirname(img_paths[0])}. "
-                )
+                LOGGER.warning(f"WARNING: No labels found in {osp.dirname(img_paths[0])}. ")
 
         if self.task.lower() == "val":
-            if self.data_dict.get("is_coco", False): # use original json file when evaluating on coco dataset.
-                assert osp.exists(self.data_dict["anno_path"]), "Eval on coco dataset must provide valid path of the annotation file in config file: data/coco.yaml"
+            if self.data_dict.get(
+                "is_coco", False
+            ):  # use original json file when evaluating on coco dataset.
+                assert osp.exists(
+                    self.data_dict["anno_path"]
+                ), "Eval on coco dataset must provide valid path of the annotation file in config file: data/coco.yaml"
             else:
                 assert (
                     self.class_names
@@ -429,12 +427,8 @@ class TrainValDataset(Dataset):
                 save_dir = osp.join(osp.dirname(osp.dirname(img_dirs[0])), "annotations")
                 if not osp.exists(save_dir):
                     os.mkdir(save_dir)
-                save_path = osp.join(
-                    save_dir, "instances_" + osp.basename(img_dirs[0]) + ".json"
-                )
-                TrainValDataset.generate_coco_format_labels(
-                    img_info, self.class_names, save_path
-                )
+                save_path = osp.join(save_dir, "instances_" + osp.basename(img_dirs[0]) + ".json")
+                TrainValDataset.generate_coco_format_labels(img_info, self.class_names, save_path)
 
         # img_paths, labels = list(
         #     zip(
@@ -454,9 +448,7 @@ class TrainValDataset(Dataset):
                 *[
                     (
                         img_path,
-                        info["labels"]
-                        if info["labels"]
-                        else [],
+                        info["labels"] if info["labels"] else [],
                     )
                     for img_path, info in img_info.items()
                 ]
@@ -484,14 +476,29 @@ class TrainValDataset(Dataset):
             ws.append(w)
             labels.append(labels_per_img)
             segments.append(segments_per_img)
-        img, labels, segments = mosaic_augmentation(shape, imgs, hs, ws, labels, segments, self.hyp, self.specific_shape, self.target_height, self.target_width)
+        img, labels, segments = mosaic_augmentation(
+            shape,
+            imgs,
+            hs,
+            ws,
+            labels,
+            segments,
+            self.hyp,
+            self.specific_shape,
+            self.target_height,
+            self.target_width,
+        )
         img, labels, segments = copy_paste(img, labels, segments, 0)
-        img, labels, segments = random_affine(img, labels, segments,
-                                degrees=self.hyp['degrees'],
-                                translate=self.hyp['translate'],
-                                scale=self.hyp['scale'],
-                                shear=self.hyp['shear'],
-                                new_shape=shape if not self.specific_shape else (self.target_height, self.target_width))
+        img, labels, segments = random_affine(
+            img,
+            labels,
+            segments,
+            degrees=self.hyp["degrees"],
+            translate=self.hyp["translate"],
+            scale=self.hyp["scale"],
+            shear=self.hyp["shear"],
+            new_shape=shape if not self.specific_shape else (self.target_height, self.target_width),
+        )
         return img, labels, segments
 
     def general_augment(self, img, labels, segments):
@@ -522,10 +529,10 @@ class TrainValDataset(Dataset):
                 segments = np.fliplr(segments)
                 labels[:, 1] = 1 - labels[:, 1]
 
-        return img, labels, segments.transpose(2, 0, 1) if segments.shape[0]!=0 else segments
+        return img, labels, segments.transpose(2, 0, 1) if segments.shape[0] != 0 else segments
 
     def sort_files_shapes(self):
-        '''Sort by aspect ratio.'''
+        """Sort by aspect ratio."""
         batch_num = self.batch_indices[-1] + 1
         s = self.shapes  # [height, width]
         ar = s[:, 1] / s[:, 0]  # aspect ratio
@@ -546,15 +553,13 @@ class TrainValDataset(Dataset):
             elif mini > 1:
                 shapes[i] = [1 / mini, 1]
         self.batch_shapes = (
-            np.ceil(np.array(shapes) * self.img_size / self.stride + self.pad).astype(
-                np.int_
-            )
+            np.ceil(np.array(shapes) * self.img_size / self.stride + self.pad).astype(np.int_)
             * self.stride
         )
 
     @staticmethod
     def check_image(im_file):
-        '''Verify an image.'''
+        """Verify an image."""
         nc, msg = 0, ""
         try:
             im = Image.open(im_file)
@@ -595,39 +600,43 @@ class TrainValDataset(Dataset):
         return y
 
     @staticmethod
-    def drawit(img, labels, masks, imgname = "", task = ""):
+    def drawit(img, labels, masks, imgname="", task=""):
         # Convert normalized segments into pixel segments, shape (n,2)
         # There are some bugs in Val!
         if task == "Val":
             return 0
         import copy
-        
+
         spsp = copy.deepcopy(img)
         for label in labels:
             xy = label[1:3] * np.asarray(img.shape[:2])[::-1]
             wh = label[3:5] * np.asarray(img.shape[:2])[::-1]
             pt1 = (xy - wh / 2).astype(np.int_)
             pt2 = (xy + wh / 2).astype(np.int_)
-            cv2.rectangle(spsp, pt1, pt2, (0,255,255), 1)
-        ssss = random.randint(0,100000000)
+            cv2.rectangle(spsp, pt1, pt2, (0, 255, 255), 1)
+        ssss = random.randint(0, 100000000)
         for mask in masks:
-            if mask.shape[:2]!=(img.shape[0], img.shape[1]):
-                m = cv2.resize(mask,(img.shape[0], img.shape[1]))
+            if mask.shape[:2] != (img.shape[0], img.shape[1]):
+                m = cv2.resize(mask, (img.shape[0], img.shape[1]))
             else:
                 m = mask
             m = m.reshape(img.shape[0], img.shape[1], 1)
-            q = np.ones((img.shape[0], img.shape[1], 1), dtype = np.int_) * 255 * m
+            q = np.ones((img.shape[0], img.shape[1], 1), dtype=np.int_) * 255 * m
             q = q * m
             s = np.zeros((img.shape[0], img.shape[1], 2))
-            s = np.concatenate([s, q], axis = 2)
+            s = np.concatenate([s, q], axis=2)
             spsp = cv2.addWeighted(spsp, 1, s.astype(np.int_), 0.5, 0, dtype=cv2.CV_8U)
         print(img.shape, labels.shape, masks.shape)
         try:
-            print(cv2.imwrite("/home/hadoop-seccv/ssd/wangzhaonian/yolov6_seg/test_img/{}.jpg".format(ssss), spsp))
+            print(
+                cv2.imwrite(
+                    "/home/hadoop-seccv/ssd/wangzhaonian/yolov6_seg/test_img/{}.jpg".format(ssss),
+                    spsp,
+                )
+            )
             print(imgname, ssss, len(labels), len(masks))
         except:
             print("?")
-
 
     @staticmethod
     def check_label_files(args):
@@ -638,7 +647,9 @@ class TrainValDataset(Dataset):
                 nf = 1  # label found
                 with open(lb_path, "r") as f:
                     labels = [
-                        x.split() for x in f.read().strip().splitlines() if len(x) > 5 # get which has seg
+                        x.split()
+                        for x in f.read().strip().splitlines()
+                        if len(x) > 5  # get which has seg
                     ]
                     # labels = np.array(labels, dtype=np.float32)
                 if len(labels):
@@ -698,11 +709,12 @@ class TrainValDataset(Dataset):
             masks.append(mask)
         return np.array(masks)
 
-
     def polygons2masks_overlap(self, img_size, segments, downsample_ratio=1):
         """Return a (640, 640) overlap mask."""
-        masks = np.zeros((img_size[0] // downsample_ratio, img_size[1] // downsample_ratio),
-                        dtype=np.int32 if len(segments) > 255 else np.uint8)
+        masks = np.zeros(
+            (img_size[0] // downsample_ratio, img_size[1] // downsample_ratio),
+            dtype=np.int32 if len(segments) > 255 else np.uint8,
+        )
         areas = []
         ms = []
         for si in range(len(segments)):
@@ -728,9 +740,7 @@ class TrainValDataset(Dataset):
         # for evaluation with pycocotools
         dataset = {"categories": [], "annotations": [], "images": []}
         for i, class_name in enumerate(class_names):
-            dataset["categories"].append(
-                {"id": i, "name": class_name, "supercategory": ""}
-            )
+            dataset["categories"].append({"id": i, "name": class_name, "supercategory": ""})
 
         ann_id = 0
         LOGGER.info(f"Convert to COCO format")
@@ -752,7 +762,7 @@ class TrainValDataset(Dataset):
                     c, x, y, w, h = float(c), float(x), float(y), float(w), float(h)
                     seg = np.asarray(label[5:]).astype(np.float32)
                     seg = seg.reshape(-1, 2)
-                    #breakpoint()
+                    # breakpoint()
                     seg = seg * np.asarray([img_w, img_h])
                     seg = seg.reshape(-1)
                     # convert x,y,w,h to x1,y1,x2,y2
@@ -780,9 +790,7 @@ class TrainValDataset(Dataset):
 
         with open(save_path, "w") as f:
             json.dump(dataset, f)
-            LOGGER.info(
-                f"Convert to COCO format finished. Resutls saved in {save_path}"
-            )
+            LOGGER.info(f"Convert to COCO format finished. Resutls saved in {save_path}")
 
     @staticmethod
     def get_hash(paths):
@@ -796,22 +804,22 @@ class LoadData:
     def __init__(self, path, webcam, webcam_addr):
         self.webcam = webcam
         self.webcam_addr = webcam_addr
-        if webcam: # if use web camera
+        if webcam:  # if use web camera
             imgp = []
             vidp = [int(webcam_addr) if webcam_addr.isdigit() else webcam_addr]
         else:
             p = str(Path(path).resolve())  # os-agnostic absolute path
             if os.path.isdir(p):
-                files = sorted(glob.glob(os.path.join(p, '**/*.*'), recursive=True))  # dir
+                files = sorted(glob.glob(os.path.join(p, "**/*.*"), recursive=True))  # dir
             elif os.path.isfile(p):
                 files = [p]  # files
             else:
-                raise FileNotFoundError(f'Invalid path {p}')
-            imgp = [i for i in files if i.split('.')[-1] in IMG_FORMATS]
-            vidp = [v for v in files if v.split('.')[-1] in VID_FORMATS]
+                raise FileNotFoundError(f"Invalid path {p}")
+            imgp = [i for i in files if i.split(".")[-1] in IMG_FORMATS]
+            vidp = [v for v in files if v.split(".")[-1] in VID_FORMATS]
         self.files = imgp + vidp
         self.nf = len(self.files)
-        self.type = 'image'
+        self.type = "image"
         if len(vidp) > 0:
             self.add_video(vidp[0])  # new video
         else:
@@ -820,9 +828,9 @@ class LoadData:
     # @staticmethod
     def checkext(self, path):
         if self.webcam:
-            file_type = 'video'
+            file_type = "video"
         else:
-            file_type = 'image' if path.split('.')[-1].lower() in IMG_FORMATS else 'video'
+            file_type = "image" if path.split(".")[-1].lower() in IMG_FORMATS else "video"
         return file_type
 
     def __iter__(self):
@@ -833,8 +841,8 @@ class LoadData:
         if self.count == self.nf:
             raise StopIteration
         path = self.files[self.count]
-        if self.checkext(path) == 'video':
-            self.type = 'video'
+        if self.checkext(path) == "video":
+            self.type = "video"
             ret_val, img = self.cap.read()
             while not ret_val:
                 self.count += 1

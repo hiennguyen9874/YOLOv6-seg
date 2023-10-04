@@ -1,4 +1,5 @@
 # ONNX -> TensorRT INT8
+
 These scripts were last tested using the
 [NGC TensorRT Container Version 20.06-py3](https://ngc.nvidia.com/catalog/containers/nvidia:tensorrt).
 You can see the corresponding framework versions for this container [here](https://docs.nvidia.com/deeplearning/sdk/tensorrt-container-release-notes/rel_20.06.html#rel_20.06).
@@ -7,9 +8,9 @@ You can see the corresponding framework versions for this container [here](https
 
 > **NOTE**: This INT8 example is only valid for **fixed-shape** ONNX models at the moment.
 >
-INT8 Calibration on **dynamic-shape** models is now supported, however this example has not been updated
-to reflect that yet. For more details on INT8 Calibration for **dynamic-shape** models, please
-see the [documentation](https://docs.nvidia.com/deeplearning/tensorrt/developer-guide/index.html#int8-calib-dynamic-shapes).
+> INT8 Calibration on **dynamic-shape** models is now supported, however this example has not been updated
+> to reflect that yet. For more details on INT8 Calibration for **dynamic-shape** models, please
+> see the [documentation](https://docs.nvidia.com/deeplearning/tensorrt/developer-guide/index.html#int8-calib-dynamic-shapes).
 
 ### 1. Convert ONNX model to TensorRT INT8
 
@@ -40,10 +41,10 @@ In the [Quickstart](#quickstart) section above, we made use of a pre-existing ca
 
 However, to calibrate using different data or a different model, you can do so with the `--calibration-data` argument.
 
-* This requires that you've mounted a dataset, such as Imagenet, to use for calibration.
-    * Add something like `-v /imagenet:/imagenet` to your Docker command in Step (1)
-      to mount a dataset found locally at `/imagenet`.
-* You can specify your own `preprocess_func` by defining it inside of `Calibrator.py`
+- This requires that you've mounted a dataset, such as Imagenet, to use for calibration.
+  - Add something like `-v /imagenet:/imagenet` to your Docker command in Step (1)
+    to mount a dataset found locally at `/imagenet`.
+- You can specify your own `preprocess_func` by defining it inside of `Calibrator.py`
 
 ```bash
 # Path to dataset to use for calibration.

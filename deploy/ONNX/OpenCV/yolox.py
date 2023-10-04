@@ -5,10 +5,12 @@ import numpy as np
 import os
 
 
-class yolox():
-    def __init__(self, model, classesFile, p6=False, confThreshold=0.5, nmsThreshold=0.5, objThreshold=0.5):
-        with open(classesFile, 'rt') as f:
-            self.class_names = f.read().rstrip('\n').split('\n')
+class yolox:
+    def __init__(
+        self, model, classesFile, p6=False, confThreshold=0.5, nmsThreshold=0.5, objThreshold=0.5
+    ):
+        with open(classesFile, "rt") as f:
+            self.class_names = f.read().rstrip("\n").split("\n")
         self.net = cv2.dnn.readNet(model)
         self.input_size = (640, 640)
         self.mean = (0.485, 0.456, 0.406)
@@ -104,7 +106,9 @@ class yolox():
                 keep = self.nms(valid_boxes, valid_scores)
                 if len(keep) > 0:
                     cls_inds = np.ones((len(keep), 1)) * cls_ind
-                    dets = np.concatenate([valid_boxes[keep], valid_scores[keep, None], cls_inds], 1)
+                    dets = np.concatenate(
+                        [valid_boxes[keep], valid_scores[keep, None], cls_inds], 1
+                    )
                     final_dets.append(dets)
         if len(final_dets) == 0:
             return None
@@ -122,11 +126,17 @@ class yolox():
             x1 = int(box[2])
             y1 = int(box[3])
 
-            text = '{}:{:.2f}'.format(self.class_names[cls_id], score)
+            text = "{}:{:.2f}".format(self.class_names[cls_id], score)
             font = cv2.FONT_HERSHEY_SIMPLEX
             txt_size, baseline = cv2.getTextSize(text, font, 0.7, 1)
             cv2.rectangle(img, (x0, y0), (x1, y1), (255, 178, 50), 2)
-            cv2.rectangle(img, (x0, y0 + 1), (x0 + txt_size[0] + 1, y0 + txt_size[1] + baseline), (0, 0, 0), -1)
+            cv2.rectangle(
+                img,
+                (x0, y0 + 1),
+                (x0 + txt_size[0] + 1, y0 + txt_size[1] + baseline),
+                (0, 0, 0),
+                -1,
+            )
             cv2.putText(img, text, (x0, y0 + txt_size[1]), font, 0.7, (0, 255, 255), 1, cv2.LINE_AA)
         return img
 
@@ -141,10 +151,10 @@ class yolox():
         scores = predictions[:, 4:5] * predictions[:, 5:]
 
         boxes_xyxy = np.ones_like(boxes)
-        boxes_xyxy[:, 0] = boxes[:, 0] - boxes[:, 2] / 2.
-        boxes_xyxy[:, 1] = boxes[:, 1] - boxes[:, 3] / 2.
-        boxes_xyxy[:, 2] = boxes[:, 0] + boxes[:, 2] / 2.
-        boxes_xyxy[:, 3] = boxes[:, 1] + boxes[:, 3] / 2.
+        boxes_xyxy[:, 0] = boxes[:, 0] - boxes[:, 2] / 2.0
+        boxes_xyxy[:, 1] = boxes[:, 1] - boxes[:, 3] / 2.0
+        boxes_xyxy[:, 2] = boxes[:, 0] + boxes[:, 2] / 2.0
+        boxes_xyxy[:, 3] = boxes[:, 1] + boxes[:, 3] / 2.0
         boxes_xyxy /= ratio
         dets = self.multiclass_nms(boxes_xyxy, scores)
         if dets is not None:
@@ -153,18 +163,25 @@ class yolox():
         return srcimg
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = argparse.ArgumentParser("opencv inference sample")
-    parser.add_argument("--model", type=str, default="models/yolox_m.onnx", help="Input your onnx model.")
-    parser.add_argument("--img", type=str, default='sample.jpg', help="Path to your input image.")
-    parser.add_argument("--score_thr", type=float, default=0.3, help="Score threshold to filter the result.")
-    parser.add_argument("--classesFile", type=str, default='coco.names', help="Path to your classesFile.")
-    parser.add_argument("--with_p6", action="store_true", help="Whether your model uses p6 in FPN/PAN.")
+    parser.add_argument(
+        "--model", type=str, default="models/yolox_m.onnx", help="Input your onnx model."
+    )
+    parser.add_argument("--img", type=str, default="sample.jpg", help="Path to your input image.")
+    parser.add_argument(
+        "--score_thr", type=float, default=0.3, help="Score threshold to filter the result."
+    )
+    parser.add_argument(
+        "--classesFile", type=str, default="coco.names", help="Path to your classesFile."
+    )
+    parser.add_argument(
+        "--with_p6", action="store_true", help="Whether your model uses p6 in FPN/PAN."
+    )
     args = parser.parse_args()
     net = yolox(args.model, args.classesFile, p6=args.with_p6, confThreshold=args.score_thr)
     srcimg = cv2.imread(args.img)
     input = srcimg.copy()
-
 
     # Put efficiency information. The function getPerfProfile returns the overall time for inference(t) and the
     # timings for each of the layers(in layersTimes)
@@ -174,13 +191,13 @@ if __name__ == '__main__':
         srcimg = net.detect(input.copy())
         t, _ = net.net.getPerfProfile()
         total_time += t
-        print(f'Cycle [{i + 1}]:\t{t * 1000.0 / cv2.getTickFrequency():.2f}\tms')
+        print(f"Cycle [{i + 1}]:\t{t * 1000.0 / cv2.getTickFrequency():.2f}\tms")
 
     avg_time = total_time / cycles
     window_name = os.path.splitext(os.path.basename(args.model))[0]
-    label = 'Average inference time: %.2f ms' % (avg_time * 1000.0 / cv2.getTickFrequency())
-    print(f'Model: {window_name}\n{label}')
-    cv2.putText(srcimg, label, (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0,0,255), 1, cv2.LINE_AA)
+    label = "Average inference time: %.2f ms" % (avg_time * 1000.0 / cv2.getTickFrequency())
+    print(f"Model: {window_name}\n{label}")
+    cv2.putText(srcimg, label, (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 1, cv2.LINE_AA)
 
     cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
     cv2.imshow(window_name, srcimg)

@@ -1,14 +1,18 @@
 # 模型转换
-### 此文档将展示如何把 在3.0代码库下训练出来的模型 转换为 可在4.0代码库训练测试的模型。
+
+### 此文档将展示如何把 在 3.0 代码库下训练出来的模型 转换为 可在 4.0 代码库训练测试的模型。
+
 ### 具体步骤如下：
 
-### 0. 分别拉取3.0代码库和4.0代码库
+### 0. 分别拉取 3.0 代码库和 4.0 代码库
 
-### 1. 基于4.0代码库下训练相同配置的模型，当运行一个epoch后会在保存目录下保存模型文件，即可停止训练
+### 1. 基于 4.0 代码库下训练相同配置的模型，当运行一个 epoch 后会在保存目录下保存模型文件，即可停止训练
+
 通过 `torch.load`加载模型文件，并将模型里所有权重的键值 `model.keys()` 保存下来.
 
-### 2. 在3.0代码库下进行模型权重键值替换
-其中newnames是步骤1保存的 `model.keys()`，需要提前得到并替换进来，运行得到转换keys后的model. 这里以 YOLOv6m 转换为例：
+### 2. 在 3.0 代码库下进行模型权重键值替换
+
+其中 newnames 是步骤 1 保存的 `model.keys()`，需要提前得到并替换进来，运行得到转换 keys 后的 model. 这里以 YOLOv6m 转换为例：
 
 ```python
 import json
@@ -36,7 +40,7 @@ for k in param_state_dict.float().state_dict():
         else:
             old_state_dict[k] = param_state_dict.float().state_dict()[k].numpy()
 
-# load new model with the latest code and paste new model.state_dict().keys() 
+# load new model with the latest code and paste new model.state_dict().keys()
 newnames = ['backbone.stem.rbr_dense.conv.weight', 'backbone.stem.rbr_dense.bn.weight', ...]
 print(f'num of newnames:{len(newnames)}')
 print(f'num of old weights: {len(old_state_dict.keys())}')
@@ -52,8 +56,7 @@ ckpt = {'model': tweights}
 torch.save(ckpt, 'weights/YOLOv6m_newtensor.pt')
 ```
 
-
-### 3. 在4.0代码库下进行模型权重替换
+### 3. 在 4.0 代码库下进行模型权重替换
 
 ```python
 import torch

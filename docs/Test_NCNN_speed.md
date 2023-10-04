@@ -5,26 +5,27 @@ This tutorial explains how to convert a YOLOv6 model into the [NCNN](https://git
 ## 0. Prepare Environment
 
 There are currently two paths to convert a model to the NCNN format: the first path is from PyTorch to ONNX to NCNN, and the second path is from PyTorch to TorchScript to ONNX to NCNN.
-* First path: Build [NCNN](https://github.com/Tencent/ncnn)
-* Second path: Build [NCNN](https://github.com/Tencent/ncnn) and [PNNX](https://github.com/Tencent/ncnn/tree/master/tools/pnnx). If you don't want to build PNNX, maybe have a try: [PNNX releases](https://github.com/pnnx/pnnx/releases)
+
+- First path: Build [NCNN](https://github.com/Tencent/ncnn)
+- Second path: Build [NCNN](https://github.com/Tencent/ncnn) and [PNNX](https://github.com/Tencent/ncnn/tree/master/tools/pnnx). If you don't want to build PNNX, maybe have a try: [PNNX releases](https://github.com/pnnx/pnnx/releases)
 
 ## 1. Prepare something else
 
-* Prepare the original .pt file under the ./path/to/yolov6 directory.
+- Prepare the original .pt file under the ./path/to/yolov6 directory.
 
-* (Path 2)Prepare the export_pt.py file under the ./path/to/yolov6/deploy directory. And you should modify the code as the following tutorial.
+- (Path 2)Prepare the export_pt.py file under the ./path/to/yolov6/deploy directory. And you should modify the code as the following tutorial.
 
 ## 2. Convert
 
 #### 2.1 ONNX-->NCNN path
 
-* Export ONNX model as following command:
+- Export ONNX model as following command:
 
 ```shell
 python deploy/ONNX/export_onnx.py --weights ./path/to/yolov6s.pt --device 0 --simplify --batch [1 or 32]
 ```
 
-* Use the onnx2ncnn tool to convert the ONNX model to NCNN format:
+- Use the onnx2ncnn tool to convert the ONNX model to NCNN format:
 
 ```shell
 ./onnx2ncnn ./path/to/yolov6s.onnx ./path/to/save/yolov6s.param /path/to/save/yolov6s.bin
@@ -32,69 +33,71 @@ python deploy/ONNX/export_onnx.py --weights ./path/to/yolov6s.pt --device 0 --si
 
 #### 2.2 PNNX-->NCNN path
 
-* Modify the export_pt.py as follow
-<details>
-    <summary>Show/Hide export.py</summary>
+- Modify the export_pt.py as follow
+  <details>
+      <summary>Show/Hide export.py</summary>
 
-    #!/usr/bin/env python3
-    # -*- coding:utf-8 -*-
-    import argparse
-    import sys
-    import os
-    import torch
-    import torch.nn as nn
+      #!/usr/bin/env python3
+      # -*- coding:utf-8 -*-
+      import argparse
+      import sys
+      import os
+      import torch
+      import torch.nn as nn
 
-    ROOT = os.getcwd()
-    if str(ROOT) not in sys.path:
-        sys.path.append(str(ROOT))
+      ROOT = os.getcwd()
+      if str(ROOT) not in sys.path:
+          sys.path.append(str(ROOT))
 
-    from yolov6.models.yolo import *
-    from yolov6.models.effidehead import Detect
-    from yolov6.layers.common import *
-    from yolov6.utils.events import LOGGER
-    from yolov6.utils.checkpoint import load_checkpoint
+      from yolov6.models.yolo import *
+      from yolov6.models.effidehead import Detect
+      from yolov6.layers.common import *
+      from yolov6.utils.events import LOGGER
+      from yolov6.utils.checkpoint import load_checkpoint
 
-    if __name__ == '__main__':
-        parser = argparse.ArgumentParser()
-        parser.add_argument('--weights', type=str, default='./yolov6s.pt', help='weights path')
-        parser.add_argument('--half', action='store_true', help='FP16 half-precision export')
-        parser.add_argument('--device', default='cpu', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
-        parser.add_argument('--inplace', action='store_true', help='set Detect() inplace=True')
-        args = parser.parse_args()
-        print(args)
+      if __name__ == '__main__':
+          parser = argparse.ArgumentParser()
+          parser.add_argument('--weights', type=str, default='./yolov6s.pt', help='weights path')
+          parser.add_argument('--half', action='store_true', help='FP16 half-precision export')
+          parser.add_argument('--device', default='cpu', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
+          parser.add_argument('--inplace', action='store_true', help='set Detect() inplace=True')
+          args = parser.parse_args()
+          print(args)
 
-        cuda = args.device != 'cpu' and torch.cuda.is_available()
-        device = torch.device(f'cuda:{args.device}' if cuda else 'cpu')
-        assert not (device.type == 'cpu' and args.half), '--half only compatible with GPU export, i.e. use --device 0'
-        model = load_checkpoint(args.weights, map_location=device, inplace=True, fuse=True)  # load FP32 model
-        for layer in model.modules():
-            if isinstance(layer, RepVGGBlock):
-                layer.switch_to_deploy()
+          cuda = args.device != 'cpu' and torch.cuda.is_available()
+          device = torch.device(f'cuda:{args.device}' if cuda else 'cpu')
+          assert not (device.type == 'cpu' and args.half), '--half only compatible with GPU export, i.e. use --device 0'
+          model = load_checkpoint(args.weights, map_location=device, inplace=True, fuse=True)  # load FP32 model
+          for layer in model.modules():
+              if isinstance(layer, RepVGGBlock):
+                  layer.switch_to_deploy()
 
-        if args.half:
-            model = model.half()
-        model.eval()
-        for k, m in model.named_modules():
-            if isinstance(m, Conv):
-                if isinstance(m.act, nn.SiLU):
-                    m.act = SiLU()
-            elif isinstance(m, Detect):
-                m.inplace = args.inplace
+          if args.half:
+              model = model.half()
+          model.eval()
+          for k, m in model.named_modules():
+              if isinstance(m, Conv):
+                  if isinstance(m.act, nn.SiLU):
+                      m.act = SiLU()
+              elif isinstance(m, Detect):
+                  m.inplace = args.inplace
 
-        x = torch.rand(1, 3, 512, 512)
-        mod = torch.jit.trace(model, x)
-        mod.save("your_filename.pt")
-</details>
-<br>
+          x = torch.rand(1, 3, 512, 512)
+          mod = torch.jit.trace(model, x)
+          mod.save("your_filename.pt")
 
-* Then, run the export_pt.py in shell
+  </details>
+  <br>
+
+- Then, run the export_pt.py in shell
 
 ```shell
 python ./path/to/yolov6/deploy/export_pt.py --weights ./path/to/yolov6s.pt
 ```
+
 The above code throws an error that it cannot output a List. To fix this, modify the forward function of the Model in yolov6/models/yolo.py to return x only if export_mode is True, otherwise return a List [x, featmaps].
 
-* Copy the generated new .pt file to the directory where the pnnx script is located, and then execute following command.
+- Copy the generated new .pt file to the directory where the pnnx script is located, and then execute following command.
 
 ```shell
 ./path/to/pnnx ./path/to/generate.pt inputshape=[1,3,640,640] #windows
@@ -102,9 +105,10 @@ The above code throws an error that it cannot output a List. To fix this, modify
 ```
 
 ## 3. Modify ncnn file
+
 In most versions of ncnn, there are some issues with directly generating ncnn as mentioned above, manifested as xywh being all 0 or random numbers. This is because some versions of ncnn have problems with broadcast multiplication, which requires modifying the param file.
 
-- Open *.param and find the parameter name that corresponds to the output of the last Mul operator and the first input.
+- Open \*.param and find the parameter name that corresponds to the output of the last Mul operator and the first input.
 
 - Change the output corresponding to the last concat operation's first input from the output mentioned in a to the first input.
 
@@ -279,11 +283,12 @@ In most versions of ncnn, there are some issues with directly generating ncnn as
     Permute                  permute_193              1 1 156 184 0=1
     Concat                   cat_11                   3 1 180 183 184 out0 0=1
     #origin : Concat                   cat_11                   3 1 182 183 184 out0 0=1
+
 </details>
 <br>
 This modification means that some operations in the head need to be added to the post-processing of the used framework. Next, we will use lite.ai.toolkit as an example to explain.
 
-* Modify ./path/to/lite.ai.Toolkit/examples/lite/cv/test_lite_yolov6.cpp as
+- Modify ./path/to/lite.ai.Toolkit/examples/lite/cv/test_lite_yolov6.cpp as
 
 <details>
     <summary>Show/Hide test_lite_yolov6.cpp</summary>
@@ -358,6 +363,7 @@ This modification means that some operations in the head need to be added to the
     test_lite(onnx, ncnn_param, ncnn_bin);
     return 0;
     }
+
 </details>
 <br>
 * Modify ./path/to/lite.ai.Toolkit/lite/ncnn/cv/ncnn_yolov6.h Line 28-29 to the input resolution of the ncnn model.
@@ -478,6 +484,7 @@ This modification means that some operations in the head need to be added to the
     }
 
     #endif //LITE_AI_TOOLKIT_NCNN_CV_NCNN_YOLOV6_H
+
 </details>
 <br>
 * Modify ./path/to/lite.ai.Toolkit/lite/ncnn/cv/ncnn_yolov6.cpp
@@ -762,6 +769,7 @@ This modification means that some operations in the head need to be added to the
     }
     std::cout << "========================================\n";
     }
+
 </details>
 <br>
 * Save yolov6s.onnx, yolov6s.param, yolov6s.bin to ./path/to/lite.ai.Toolkit/hub. Compile lite.ai.Toolkit. Then execute the following commands.
@@ -770,6 +778,7 @@ This modification means that some operations in the head need to be added to the
 
     cd ./path/to/lite.ai.Toolkit/build/lite.ai.toolkit/bin
     ./lite_yolov6 yolov6s.onnx yolov6s.param yolov6s.bin
+
 </details>
 <br>
 
@@ -779,11 +788,10 @@ This modification means that some operations in the head need to be added to the
   <img src="../assets/yolov6lite_l_ncnn.jpg" align="middle" width = "500" />
 </p>
 
-
-| Model                                                         | Size | Speed<sup>NCNN<br/>average <br/>(fps) | Params<br/><sup> (M) | FLOPs<br/><sup> (G) |
-| :----------------------------------------------------------- | :-------------------------------- | -------------------------------------- | --------------------------------------- | -------------------- |
-|  [**YOLOv6Lite-L**](https://github.com/meituan/YOLOv6/releases/download/0.4.0/yolov6lite_l.pt) | 320*320      | 39.88                                    | 1.09                                    | 0.87                  |
-|  [**YOLOv6Lite-L**](https://github.com/meituan/YOLOv6/releases/download/0.4.0/yolov6lite_l.pt) | 320*192      | 64.51                                    | 1.09                                     | 0.52                 |
-|  [**YOLOv6Lite-L**](https://github.com/meituan/YOLOv6/releases/download/0.4.0/yolov6lite_l.pt) | 224*128      | 130.05                                    | 1.09                                     | 0.24                 |
+| Model                                                                                         | Size     | Speed<sup>NCNN<br/>average <br/>(fps) | Params<br/><sup> (M) | FLOPs<br/><sup> (G) |
+| :-------------------------------------------------------------------------------------------- | :------- | ------------------------------------- | -------------------- | ------------------- |
+| [**YOLOv6Lite-L**](https://github.com/meituan/YOLOv6/releases/download/0.4.0/yolov6lite_l.pt) | 320\*320 | 39.88                                 | 1.09                 | 0.87                |
+| [**YOLOv6Lite-L**](https://github.com/meituan/YOLOv6/releases/download/0.4.0/yolov6lite_l.pt) | 320\*192 | 64.51                                 | 1.09                 | 0.52                |
+| [**YOLOv6Lite-L**](https://github.com/meituan/YOLOv6/releases/download/0.4.0/yolov6lite_l.pt) | 224\*128 | 130.05                                | 1.09                 | 0.24                |
 
 - Speed is tested with 2.6 GHz 6Core Intel Core i7 on macOS. And the architecture used in the speed test is Coffee Lake. During the speed measurement process, 1000 pictures were randomly sampled from the COCO dataset, and the average value of the speed measurement was taken as the final result.

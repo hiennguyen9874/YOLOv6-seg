@@ -20,14 +20,13 @@ const int FONT_FACE = FONT_HERSHEY_SIMPLEX;
 const int THICKNESS = 1;
 
 // Colors.
-Scalar BLACK = Scalar(0,0,0);
+Scalar BLACK = Scalar(0, 0, 0);
 Scalar BLUE = Scalar(255, 178, 50);
 Scalar YELLOW = Scalar(0, 255, 255);
-Scalar RED = Scalar(0,0,255);
-
+Scalar RED = Scalar(0, 0, 255);
 
 // Draw the predicted bounding box.
-void draw_label(Mat& input_image, string label, int left, int top)
+void draw_label(Mat &input_image, string label, int left, int top)
 {
     // Display the label at the top of the bounding box.
     int baseLine;
@@ -43,12 +42,11 @@ void draw_label(Mat& input_image, string label, int left, int top)
     putText(input_image, label, Point(left, top + label_size.height), FONT_FACE, FONT_SCALE, YELLOW, THICKNESS);
 }
 
-
 vector<Mat> pre_process(Mat &input_image, Net &net)
 {
     // Convert to blob.
     Mat blob;
-    blobFromImage(input_image, blob, 1./255., Size(INPUT_WIDTH, INPUT_HEIGHT), Scalar(), true, false);
+    blobFromImage(input_image, blob, 1. / 255., Size(INPUT_WIDTH, INPUT_HEIGHT), Scalar(), true, false);
 
     net.setInput(blob);
 
@@ -58,7 +56,6 @@ vector<Mat> pre_process(Mat &input_image, Net &net)
 
     return outputs;
 }
-
 
 Mat post_process(Mat &input_image, vector<Mat> &outputs, const vector<string> &class_name)
 {
@@ -82,7 +79,7 @@ Mat post_process(Mat &input_image, vector<Mat> &outputs, const vector<string> &c
         // Discard bad detections and continue.
         if (confidence >= CONFIDENCE_THRESHOLD)
         {
-            float * classes_scores = data + 5;
+            float *classes_scores = data + 5;
             // Create a 1x85 Mat and store class scores of 80 classes.
             Mat scores(1, class_name.size(), CV_32FC1, classes_scores);
             // Perform minMaxLoc and acquire index of best class score.
@@ -111,7 +108,6 @@ Mat post_process(Mat &input_image, vector<Mat> &outputs, const vector<string> &c
                 // Store good detections in the boxes vector.
                 boxes.push_back(Rect(left, top, width, height));
             }
-
         }
         // Jump to the next column.
         data += 85;
@@ -130,7 +126,7 @@ Mat post_process(Mat &input_image, vector<Mat> &outputs, const vector<string> &c
         int width = box.width;
         int height = box.height;
         // Draw bounding box.
-        rectangle(input_image, Point(left, top), Point(left + width, top + height), BLUE, 3*THICKNESS);
+        rectangle(input_image, Point(left, top), Point(left + width, top + height), BLUE, 3 * THICKNESS);
 
         // Get the label for the class name and its confidence.
         string label = format("%.2f", confidences[idx]);
@@ -141,8 +137,7 @@ Mat post_process(Mat &input_image, vector<Mat> &outputs, const vector<string> &c
     return input_image;
 }
 
-
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 {
     // Usage: "./yolov5 /path/to/your/model/yolov5n.onnx /path/to/image/sample.jpg /path/to/coco.names"
     // printf(CV_VERSION);
@@ -171,7 +166,7 @@ int main(int argc, char** argv)
     double total_time = 0;
     double freq = getTickFrequency() / 1000;
     Mat img;
-    for(int i=0; i < cycles; ++i)
+    for (int i = 0; i < cycles; ++i)
     {
         vector<Mat> detections;
         Mat input = input_frame.clone();

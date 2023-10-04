@@ -30,10 +30,13 @@ import tensorrt as trt
 import pycuda.driver as cuda
 import pycuda.autoinit
 
-logging.basicConfig(level=logging.DEBUG,
-                    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-                    datefmt="%Y-%m-%d %H:%M:%S")
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 logger = logging.getLogger(__name__)
+
 
 def preprocess_yolov6(image, channels=3, height=224, width=224):
     """Pre-processing for YOLOv6-based Object Detection Models
@@ -85,20 +88,24 @@ def get_int8_calibrator(calib_cache, calib_data, max_calib_size, calib_batch_siz
     # Use calibration files from validation dataset if no cache exists
     else:
         if not calib_data:
-            raise ValueError("ERROR: Int8 mode requested, but no calibration data provided. Please provide --calibration-data /path/to/calibration/files")
+            raise ValueError(
+                "ERROR: Int8 mode requested, but no calibration data provided. Please provide --calibration-data /path/to/calibration/files"
+            )
 
         calib_files = get_calibration_files(calib_data, max_calib_size)
 
     # Choose pre-processing function for INT8 calibration
     preprocess_func = preprocess_yolov6
 
-    int8_calibrator = ImageCalibrator(calibration_files=calib_files,
-                                         batch_size=calib_batch_size,
-                                         cache_file=calib_cache)
+    int8_calibrator = ImageCalibrator(
+        calibration_files=calib_files, batch_size=calib_batch_size, cache_file=calib_cache
+    )
     return int8_calibrator
 
 
-def get_calibration_files(calibration_data, max_calibration_size=None, allowed_extensions=(".jpeg", ".jpg", ".png")):
+def get_calibration_files(
+    calibration_data, max_calibration_size=None, allowed_extensions=(".jpeg", ".jpg", ".png")
+):
     """Returns a list of all filenames ending with `allowed_extensions` found in the `calibration_data` directory.
 
     Parameters
@@ -116,16 +123,25 @@ def get_calibration_files(calibration_data, max_calibration_size=None, allowed_e
     """
 
     logger.info("Collecting calibration files from: {:}".format(calibration_data))
-    calibration_files = [path for path in glob.iglob(os.path.join(calibration_data, "**"), recursive=True)
-                         if os.path.isfile(path) and path.lower().endswith(allowed_extensions)]
+    calibration_files = [
+        path
+        for path in glob.iglob(os.path.join(calibration_data, "**"), recursive=True)
+        if os.path.isfile(path) and path.lower().endswith(allowed_extensions)
+    ]
     logger.info("Number of Calibration Files found: {:}".format(len(calibration_files)))
 
     if len(calibration_files) == 0:
-        raise Exception("ERROR: Calibration data path [{:}] contains no files!".format(calibration_data))
+        raise Exception(
+            "ERROR: Calibration data path [{:}] contains no files!".format(calibration_data)
+        )
 
     if max_calibration_size:
         if len(calibration_files) > max_calibration_size:
-            logger.warning("Capping number of calibration images to max_calibration_size: {:}".format(max_calibration_size))
+            logger.warning(
+                "Capping number of calibration images to max_calibration_size: {:}".format(
+                    max_calibration_size
+                )
+            )
             random.seed(42)  # Set seed for reproducibility
             calibration_files = random.sample(calibration_files, max_calibration_size)
 
@@ -152,8 +168,14 @@ class ImageCalibrator(trt.IInt8EntropyCalibrator2):
         shape `input_shape`.
     """
 
-    def __init__(self, calibration_files=[], batch_size=32, input_shape=(3, 224, 224),
-                 cache_file="calibration.cache", use_cv2=False):
+    def __init__(
+        self,
+        calibration_files=[],
+        batch_size=32,
+        input_shape=(3, 224, 224),
+        cache_file="calibration.cache",
+        use_cv2=False,
+    ):
         super().__init__()
         self.input_shape = input_shape
         self.cache_file = cache_file
@@ -165,8 +187,14 @@ class ImageCalibrator(trt.IInt8EntropyCalibrator2):
         self.use_cv2 = use_cv2
         # Pad the list so it is a multiple of batch_size
         if len(self.files) % self.batch_size != 0:
-            logger.info("Padding # calibration files to be a multiple of batch_size {:}".format(self.batch_size))
-            self.files += calibration_files[(len(calibration_files) % self.batch_size):self.batch_size]
+            logger.info(
+                "Padding # calibration files to be a multiple of batch_size {:}".format(
+                    self.batch_size
+                )
+            )
+            self.files += calibration_files[
+                (len(calibration_files) % self.batch_size) : self.batch_size
+            ]
 
         self.batches = self.load_batches()
         self.preprocess_func = preprocess_yolov6
@@ -180,7 +208,11 @@ class ImageCalibrator(trt.IInt8EntropyCalibrator2):
                 else:
                     image = Image.open(self.files[index + offset])
                 self.batch[offset] = self.preprocess_func(image, *self.input_shape)
-            logger.info("Calibration images pre-processed: {:}/{:}".format(index+self.batch_size, len(self.files)))
+            logger.info(
+                "Calibration images pre-processed: {:}/{:}".format(
+                    index + self.batch_size, len(self.files)
+                )
+            )
             yield self.batch
 
     def get_batch_size(self):

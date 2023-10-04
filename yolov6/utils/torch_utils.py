@@ -29,7 +29,7 @@ def torch_distributed_zero_first(local_rank: int):
 
 
 def time_sync():
-    '''Waits for all kernels in all streams on a CUDA device to complete if cuda is available.'''
+    """Waits for all kernels in all streams on a CUDA device to complete if cuda is available."""
     if torch.cuda.is_available():
         torch.cuda.synchronize()
     return time.time()
@@ -48,7 +48,7 @@ def initialize_weights(model):
 
 
 def fuse_conv_and_bn(conv, bn):
-    '''Fuse convolution and batchnorm layers https://tehnokv.com/posts/fusing-batchnorm-and-conv/.'''
+    """Fuse convolution and batchnorm layers https://tehnokv.com/posts/fusing-batchnorm-and-conv/."""
     fusedconv = (
         nn.Conv2d(
             conv.in_channels,
@@ -74,16 +74,14 @@ def fuse_conv_and_bn(conv, bn):
         if conv.bias is None
         else conv.bias
     )
-    b_bn = bn.bias - bn.weight.mul(bn.running_mean).div(
-        torch.sqrt(bn.running_var + bn.eps)
-    )
+    b_bn = bn.bias - bn.weight.mul(bn.running_mean).div(torch.sqrt(bn.running_var + bn.eps))
     fusedconv.bias.copy_(torch.mm(w_bn, b_conv.reshape(-1, 1)).reshape(-1) + b_bn)
 
     return fusedconv
 
 
 def fuse_model(model):
-    '''Fuse convolution and batchnorm layers of the model.'''
+    """Fuse convolution and batchnorm layers of the model."""
     from yolov6.layers.common import ConvModule
 
     for m in model.modules():
@@ -99,7 +97,8 @@ def get_model_info(model, img_size=640):
     Code base on https://github.com/Megvii-BaseDetection/YOLOX/blob/main/yolox/utils/model_utils.py
     """
     from thop import profile
-    stride = 64 #32
+
+    stride = 64  # 32
     img = torch.zeros((1, 3, stride, stride), device=next(model.parameters()).device)
 
     flops, params = profile(deepcopy(model), inputs=(img,), verbose=False)

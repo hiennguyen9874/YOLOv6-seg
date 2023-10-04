@@ -11,13 +11,17 @@ from yolov6.models.efficientrep import *
 from yolov6.utils.events import LOGGER
 from yolov6.models.heads.effidehead_lite import Detect, build_effidehead_layer
 
+
 class Model(nn.Module):
     export = False
-    '''YOLOv6 model with backbone, neck and head.
+    """YOLOv6 model with backbone, neck and head.
     The default parts are EfficientRep Backbone, Rep-PAN and
     Efficient Decoupled Head.
-    '''
-    def __init__(self, config, channels=3, num_classes=None):  # model, input channels, number of classes
+    """
+
+    def __init__(
+        self, config, channels=3, num_classes=None
+    ):  # model, input channels, number of classes
         super().__init__()
         # Build network
         self.backbone, self.neck, self.detect = build_network(config, channels, num_classes)
@@ -45,6 +49,7 @@ class Model(nn.Module):
         self.detect.grid = list(map(fn, self.detect.grid))
         return self
 
+
 def build_network(config, in_channels, num_classes):
     width_mul = config.model.width_multiple
 
@@ -59,17 +64,15 @@ def build_network(config, in_channels, num_classes):
     BACKBONE = eval(config.model.backbone.type)
     NECK = eval(config.model.neck.type)
 
-    out_channels_backbone = [make_divisible(i * width_mul)
-                            for i in out_channels_backbone]
-    mid_channels_backbone = [make_divisible(int(i * scale_size_backbone), divisor=8)
-                            for i in out_channels_backbone]
-    in_channels_neck = [make_divisible(i * width_mul)
-                       for i in in_channels_neck]
+    out_channels_backbone = [make_divisible(i * width_mul) for i in out_channels_backbone]
+    mid_channels_backbone = [
+        make_divisible(int(i * scale_size_backbone), divisor=8) for i in out_channels_backbone
+    ]
+    in_channels_neck = [make_divisible(i * width_mul) for i in in_channels_neck]
 
-    backbone = BACKBONE(in_channels,
-                        mid_channels_backbone,
-                        out_channels_backbone,
-                        num_repeat=num_repeat_backbone)
+    backbone = BACKBONE(
+        in_channels, mid_channels_backbone, out_channels_backbone, num_repeat=num_repeat_backbone
+    )
     neck = NECK(in_channels_neck, unified_channels_neck)
     head_layers = build_effidehead_layer(in_channels_head, 1, num_classes, num_layers)
     head = Detect(num_classes, num_layers, head_layers=head_layers)
@@ -80,6 +83,7 @@ def build_network(config, in_channels, num_classes):
 def build_model(cfg, num_classes, device):
     model = Model(cfg, channels=3, num_classes=num_classes).to(device)
     return model
+
 
 def make_divisible(v, divisor=16):
     new_v = max(divisor, int(v + divisor / 2) // divisor * divisor)

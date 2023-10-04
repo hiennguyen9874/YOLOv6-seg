@@ -35,5 +35,6 @@ def tensorrt_official_qat():
     except NameError:
         logging.info("initialzation error for quant_modules")
 
+
 # def QAT_quantizer():
 # coming soon

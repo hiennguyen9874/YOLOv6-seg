@@ -1,15 +1,15 @@
 # YOLOv6-TensorRT in C++
 
 ## Dependencies
+
 - TensorRT-8.2.3.0
 - OpenCV-4.1.0
-
-
 
 ## Step 1: Get onnx model
 
 Follow the file [ONNX README](../../tools/quantization/tensorrt/post_training/README.md) to convert the pt model to onnx `yolov6n.onnx`.
 **Now don't support end2end onnx model which include the nms plugin**
+
 ```shell
 python ./deploy/ONNX/export_onnx.py \
     --weights yolov6n.pt \
@@ -74,21 +74,25 @@ Then run the demo:
 ```
 
 # Evaluate the performance
- You can evaluate the performance of the TensorRT model.
- ```
- python deploy/TensorRT/eval_yolo_trt.py \
-    --imgs_dir /path/to/images/val \
-    --labels_dir /path/to/labels/val\
-    --annotations /path/to/coco/format/annotation/file \ --batch 1 \
-    --img_size 640 \
-    --model /path/to/tensorrt/model \
-    --do_pr_metric --is_coco
- ```
+
+You can evaluate the performance of the TensorRT model.
+
+```
+python deploy/TensorRT/eval_yolo_trt.py \
+   --imgs_dir /path/to/images/val \
+   --labels_dir /path/to/labels/val\
+   --annotations /path/to/coco/format/annotation/file \ --batch 1 \
+   --img_size 640 \
+   --model /path/to/tensorrt/model \
+   --do_pr_metric --is_coco
+```
+
 Tips:
-`--is_coco`:  if you are evaluating the COCO dataset, add this, if not, do not add this parameter.
+`--is_coco`: if you are evaluating the COCO dataset, add this, if not, do not add this parameter.
 `--do_pr_metric`: If you want to get PR metric, add this.
 
 For example:
+
 ```
 python deploy/TensorRT/eval_yolo_trt.py \
  --imgs_dir /workdir/datasets/coco/images/val2017/ \

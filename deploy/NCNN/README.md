@@ -58,19 +58,18 @@ python3 deploy/NCNN/infer-ncnn-model.py \
 - `--img-size` : The image height and width for model input.
 - `--max-stride` : The yolov6 lite model max stride.
 
-***Notice!***
+**_Notice!_**
 
 If you want to try norm yolov6 model such as `yolov6n/s/m/l`, you should add `--max-stride 32` flags .
 
-
 ## Download
 
-* [YOLOv6-lite-s]()
-* [YOLOv6-lite-m]()
-* [YOLOv6-lite-l]()
-* [YOLOv6-lite-l-320x192]()
-* [YOLOv6-lite-l-224x128]()
-* [YOLOv6-n]()
-* [YOLOv6-s]()
-* [YOLOv6-m]()
-* [YOLOv6-l]()
+- [YOLOv6-lite-s]()
+- [YOLOv6-lite-m]()
+- [YOLOv6-lite-l]()
+- [YOLOv6-lite-l-320x192]()
+- [YOLOv6-lite-l-224x128]()
+- [YOLOv6-n]()
+- [YOLOv6-s]()
+- [YOLOv6-m]()
+- [YOLOv6-l]()

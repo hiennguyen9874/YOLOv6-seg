@@ -5,6 +5,7 @@ This guidence explains how to train your own custom data with YOLOv6 (take fine-
 ## 0. Before you start
 
 Clone this repo and follow README.md to install requirements in a Python3.8 environment.
+
 ```shell
 $ git clone https://github.com/meituan/YOLOv6.git
 ```
@@ -22,7 +23,6 @@ One image corresponds to one label file, and the label format example is present
 0 0.300926 0.617063 0.601852 0.765873
 1 0.575 0.319531 0.4 0.551562
 ```
-
 
 - Each row represents one object.
 - Class id starts from `0`.
@@ -68,14 +68,34 @@ test: ../custom_dataset/images/test # test images (optional)
 is_coco: False
 
 # Classes
-nc: 20  # number of classes
-names: ['aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus', 'car', 'cat', 'chair', 'cow', 'diningtable', 'dog',
-        'horse', 'motorbike', 'person', 'pottedplant', 'sheep', 'sofa', 'train', 'tvmonitor']  # class names
+nc: 20 # number of classes
+names: [
+    "aeroplane",
+    "bicycle",
+    "bird",
+    "boat",
+    "bottle",
+    "bus",
+    "car",
+    "cat",
+    "chair",
+    "cow",
+    "diningtable",
+    "dog",
+    "horse",
+    "motorbike",
+    "person",
+    "pottedplant",
+    "sheep",
+    "sofa",
+    "train",
+    "tvmonitor",
+  ] # class names
 ```
 
 ## 2. Create a config file
 
-We use a config file to specify the network structure and training setting, including  optimizer and data augmentation hyperparameters.
+We use a config file to specify the network structure and training setting, including optimizer and data augmentation hyperparameters.
 
 If you create a new config file, please put it under the `configs` directory.
 Or just use the provided config file in `$YOLOV6_HOME/configs/*_finetune.py`. Download the pretrained model which you want to use from [here](https://github.com/meituan/YOLOv6#benchmark).
@@ -103,8 +123,6 @@ data_aug = dict(
 )
 ```
 
-
-
 ## 3. Train
 
 Single GPU
@@ -128,22 +146,17 @@ Self-distillation training
 python -m torch.distributed.launch --nproc_per_node 8 tools/train.py --batch 256 --conf configs/yolov6s_finetune.py --data data/dataset.yaml --distill --teacher_model_path your_model_path --device 0,1,2,3,4,5,6,7
 ```
 
-
 ## 4. Evaluation
 
 ```shell
 python tools/eval.py --data data/data.yaml  --weights output_dir/name/weights/best_ckpt.pt --task val --device 0
 ```
 
-
-
 ## 5. Inference
 
 ```shell
 python tools/infer.py --weights output_dir/name/weights/best_ckpt.pt --source img.jpg --device 0
 ```
-
-
 
 ## 6. Deployment
 
