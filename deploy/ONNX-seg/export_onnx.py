@@ -13,7 +13,9 @@ if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))
 
 from yolov6.models.yolo import *
-from yolov6.models.effidehead import Detect
+
+# from yolov6.models.effidehead import Detect
+from yolov6.models.heads.effidehead_fuseab_seg import Detect
 from yolov6.layers.common import *
 from yolov6.utils.events import LOGGER
 from yolov6.utils.checkpoint import load_checkpoint
@@ -83,6 +85,10 @@ if __name__ == "__main__":
     model = load_checkpoint(
         args.weights, map_location=device, inplace=True, fuse=True
     )  # load FP32 model
+
+    # Switch export mode
+    model.export = True
+
     for layer in model.modules():
         if isinstance(layer, RepVGGBlock):
             layer.switch_to_deploy()
@@ -103,6 +109,9 @@ if __name__ == "__main__":
                 m.act = SiLU()
         elif isinstance(m, Detect):
             m.inplace = args.inplace
+
+            if not args.end2end:
+                m.export_onnx = True
 
     output_names = ["output", "proto"]
 
@@ -181,6 +190,8 @@ if __name__ == "__main__":
     model.to(device)
 
     y = model(img)  # dry run
+
+    print("Shape: ", [y_item.shape for y_item in y] if isinstance(y, (list, tuple)) else y.shape)
 
     # ONNX export
     try:

@@ -9,6 +9,7 @@ from yolov6.utils.general import dist2bbox
 
 class Detect(nn.Module):
     export = False
+    export_onnx = False
     """Efficient Decoupled Head for fusing anchor-base branches.
     """
 
@@ -84,7 +85,6 @@ class Detect(nn.Module):
                 self.seg_preds_ab.append(head_layers[idx + 9])
 
     def initialize_biases(self):
-
         for conv in self.cls_preds:
             b = conv.bias.view(
                 -1,
@@ -303,6 +303,10 @@ class Detect(nn.Module):
                     cls_score_list_af.append(cls_output_af)
                     reg_dist_list_af.append(reg_output_af)
                     seg_conf_list_af.append(seg_output_af)
+                elif self.export_onnx:
+                    cls_score_list_af.append(cls_output_af.reshape([b, self.nc, l]))
+                    reg_dist_list_af.append(reg_output_af.reshape([b, 4, l]))
+                    seg_conf_list_af.append(seg_output_af.reshape([b, 32, l]))
                 else:
                     cls_score_list_af.append(cls_output_af.reshape([b, self.nc, l]))
                     reg_dist_list_af.append(reg_output_af.reshape([b, 4, l]))
@@ -342,22 +346,40 @@ class Detect(nn.Module):
             pred_bboxes = pred_bboxes_af
             cls_score_list = cls_score_list_af
 
-            return (
-                torch.cat(
-                    [
-                        pred_bboxes,
-                        torch.ones(
-                            (b, pred_bboxes.shape[1], 1),
-                            device=pred_bboxes.device,
-                            dtype=pred_bboxes.dtype,
-                        ),
-                        cls_score_list,
-                    ],
-                    axis=-1,
-                ),
-                seg_list,
-                seg_conf_list_af,
-            )
+            if self.export_onnx:
+                return (
+                    torch.cat(
+                        [
+                            pred_bboxes,
+                            torch.ones(
+                                (b, pred_bboxes.shape[1], 1),
+                                device=pred_bboxes.device,
+                                dtype=pred_bboxes.dtype,
+                            ),
+                            cls_score_list,
+                            seg_conf_list_af,
+                        ],
+                        axis=-1,
+                    ),
+                    seg_list[0],
+                )
+            else:
+                return (
+                    torch.cat(
+                        [
+                            pred_bboxes,
+                            torch.ones(
+                                (b, pred_bboxes.shape[1], 1),
+                                device=pred_bboxes.device,
+                                dtype=pred_bboxes.dtype,
+                            ),
+                            cls_score_list,
+                        ],
+                        axis=-1,
+                    ),
+                    seg_list,
+                    seg_conf_list_af,
+                )
 
 
 class Proto(nn.Module):
@@ -414,7 +436,6 @@ class Conv(nn.Module):
 def build_effidehead_layer(
     channels_list, num_anchors, num_classes, reg_max=16, num_layers=3, num_masks=32, fuse_ab=False
 ):
-
     chx = [6, 8, 10] if num_layers == 3 else [8, 9, 10, 11]
 
     head_layers = nn.Sequential(
